@@ -1834,6 +1834,17 @@ static void validateNumParameters(Compiler* compiler, int numArgs)
   }
 }
 
+// Clamps [arity] to the maximum number of parameters the VM can encode in a
+// CALL_n/SUPER_n opcode. This prevents forming an out-of-range opcode (and the
+// resulting out-of-bounds read of stackEffects) when the parser continues past
+// an arity error.
+static int clampArity(int arity)
+{
+  if (arity > MAX_PARAMETERS) return MAX_PARAMETERS;
+  if (arity < 0) return 0;
+  return arity;
+}
+
 // Parses the rest of a comma-separated parameter list after the opening
 // delimeter. Updates `arity` in [signature] with the number of parameters.
 static void finishParameterList(Compiler* compiler, Signature* signature)
@@ -1981,7 +1992,8 @@ static void callSignature(Compiler* compiler, Code instruction,
                           Signature* signature)
 {
   int symbol = signatureSymbol(compiler, signature);
-  emitShortArg(compiler, (Code)(instruction + signature->arity), symbol);
+  emitShortArg(compiler, (Code)(instruction + clampArity(signature->arity)),
+               symbol);
 
   if (instruction == CODE_SUPER_0)
   {
@@ -2002,7 +2014,7 @@ static void callMethod(Compiler* compiler, int numArgs, const char* name,
                        int length)
 {
   int symbol = methodSymbol(compiler, name, length);
-  emitShortArg(compiler, (Code)(CODE_CALL_0 + numArgs), symbol);
+  emitShortArg(compiler, (Code)(CODE_CALL_0 + clampArity(numArgs)), symbol);
 }
 
 // Compiles an (optional) argument list for a method call with [methodSignature]
